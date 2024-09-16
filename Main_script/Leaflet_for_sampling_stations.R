@@ -39,6 +39,7 @@ librarian::shelf(dplyr, sf, terra, readxl, leaflet, leafem, leaflet.extras, html
 
 # Set file paths for input data excluding the output file
 file_paths <- list(
+  # update with your valid paths
   path_aux_file = "/path/to/station_lat_lon.xlsx",    # Files with info regarding stations (e.g., station number, lat, lon, sampling dates, etc.) 
   path_to_clim = "/path/to/chl_clim.nc",              # Chlorophyll-a NetCDF file (climatology or NRT image) 
   path_to_depth = "/path/to/depth.nc"                 # Bathymetry NetCDF file 
