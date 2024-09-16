@@ -70,81 +70,71 @@ title_map <- tags$div(HTML('
 # Prepare station content for popups combining different columns
 content <- paste(sep = "<br/>", station_lat_lon$date, station_lat_lon$popup, station_lat_lon$position)
 
-# Load and process climatology and bathymetry data ensuring compatible CRS
-chl_clim <- raster(file_paths$path_to_clim, varname = "CHL")
-values(chl_clim) <- log10(values(chl_clim))                               # Chl values in log to help pattern visualization on map
+# Load and process climatology and bathymetry data, ensuring compatible CRS
+chl_clim <- terra::rast(file_paths$path_to_clim, subds  = "CHL")
+chl_clim <- log10(chl_clim)   # Chl values in log to help pattern visualization on the map
 
-r_bathy <- raster(file_paths$path_to_depth, varname = "elevation")
-crs(r_bathy) <- CRS(projection(chl_clim))                                 # Ensure matching CRS for bathymetry data
-r_bathy <- crop(r_bathy, extent(chl_clim))                                # Crop bathymetry data to match the extent of climatology data
+r_bathy <- terra::rast(file_paths$path_to_depth, subds = "elevation")
+terra::crs(r_bathy) <- terra::crs(chl_clim)             # Ensure matching CRS for bathymetry data
+r_bathy <- terra::crop(r_bathy, terra::ext(chl_clim))   # Crop bathymetry data to match the extent of climatology data
 # Reclassify bathymetry data to differentiate depths below 200m
-rcl_matrix <- matrix(c(0, Inf, 0, -Inf, -200, NA), ncol=3, byrow=TRUE)
-r_bathy <- reclassify(r_bathy, rcl_matrix, right=TRUE)
+r_bathy <- terra::classify(r_bathy, rcl = matrix(c(0, Inf, 0, -Inf, -200, NA), ncol=3, byrow=TRUE))
 
-# Function to create color palettes for data visualization
-createColorPalette <- function(scheme, bias, paletteFunction, domain, bins = NULL, reverse = FALSE) {
-  plt <- GetColors(256, start = 0, end = 1, bias = bias, scheme = scheme)
-  if (!is.null(bins)) {
-    # For discrete color bins
-    return(paletteFunction(palette = plt, domain = domain, bins = bins, na.color = "transparent", reverse = reverse))
-  } else {
-    # For continuous color scales
-    return(paletteFunction(palette = plt, domain = domain, na.color = "transparent"))
-  }
-}
+pal1 <- colorNumeric(cmocean("algae")(256), domain = range(values(chl_clim, na.rm = TRUE)), na.color = "transparent")
+pal2 <- colorBin(cmocean("deep", direction = -1)(256), domain = range(values(r_bathy, na.rm = TRUE)), bins = 10, na.color = "transparent")
 
-# Set color palettes for chlorophyll and bathymetry data visualization
-domain_chl_clim <- range(values(chl_clim), na.rm = TRUE)
-pal1 <- createColorPalette(scheme = "jet", bias = 0.75, paletteFunction = colorNumeric, domain = domain_chl_clim)
-
-domain_r_bathy <- range(values(r_bathy), na.rm = TRUE)
-pal2 <- createColorPalette(scheme = "drywet", bias = 1, paletteFunction = colorBin, domain = domain_r_bathy, bins = 10, reverse = TRUE)
-
-# Define a function to determine marker color based on station type
-getColor <- function(station_type) {
-  if(station_type == "TARA") {
-    "green"
-  } else if(station_type == "TREC") {
-    "orange"
-  } else {
-    "red"
-  }
-}
-
-# Set a custom CRS for the Leaflet map
-customCRS <- leafletCRS(proj4def = "+proj=longlat +datum=WGS84 +ellps=WGS84 +no_defs")
+# Create the colour mapping for station types
+station_lat_lon <- station_lat_lon %>%
+  mutate(
+    color = case_when(
+      station_type == "TARA" ~ "green",
+      station_type == "TREC" ~ "orange",
+      TRUE ~ "red"  # Default to red for other types
+    ),
+    content = glue::glue("<b>{popup}</b> <br/>Location: [LAT:{round(Lat, 3)}; LON:{round(Lon, 3)}]")
+  )
 
 # --------------------------------------------------------------------------------------------------
-# Create Leaflet map
+# Create a Leaflet map
 
-# Initialize the Leaflet map with custom CRS, add base tiles, and configure various layers and controls
+# Set a custom CRS for the Leaflet map
+customCRS <- leafletCRS(proj4def = "+proj=longlat +datum=WGS84 +no_defs")
+
+# Calculate the centroid of the stations to set the View on the area of interest
+mean_lat <- mean(station_lat_lon$Lat, na.rm = TRUE)
+mean_lon <- mean(station_lat_lon$Lon, na.rm = TRUE)
+
+# Create the leaflet map
 m <- leaflet(data = station_lat_lon, options = leafletOptions(crs = customCRS)) %>%
   addProviderTiles(providers$OpenStreetMap.France, options = providerTileOptions(minZoom = 3, maxZoom = 18, detectRetina = TRUE)) %>%
-  fitBounds(extent(chl_clim)[1], extent(chl_clim)[4], extent(chl_clim)[2], extent(chl_clim)[3]) %>%
-  addMouseCoordinates() %>% 
+  setView(lng = mean_lon, lat = mean_lat, zoom = 8) %>%
+  addMouseCoordinates() %>%
   addControl(title_map, position = "bottomright") %>%
   addSimpleGraticule(interval = 1) %>%
-  # Layer 1
-  addRasterImage(chl_clim, colors = pal1, project = TRUE, opacity = 1, group = "Chla") %>%
-  addLegend("bottomright", pal = pal1, opacity = 1, group = "Chla", values = values(chl_clim),
-            labFormat = labelFormat(transform = function(x) round(10^x, 2)), title = "Chla (mg/m³)") %>%
-  # Layer 2                                  
-  addRasterImage(r_bathy, colors = pal2, project = TRUE, opacity = 1, group = "Bathy") %>%
-  addLegend("bottomright", pal = pal2, opacity = 1, group = "Bathy", values = values(r_bathy),
+  
+  # Layer 1: Chlorophyll data
+  addRasterImage(chl_clim, colors = pal1, project = FALSE, opacity = 1, group = "Chla") %>%
+  addLegend("bottomright", pal = pal1, opacity = 1, group = "Chla", values = terra::values(chl_clim),
+            labFormat = labelFormat(transform = function(x) round(10^x, 3)), title = "Chla (mg/m³)") %>%
+  
+  # Layer 2: Bathymetry data
+  addRasterImage(r_bathy, colors = pal2, project = FALSE, opacity = 1, group = "Bathy") %>%
+  addLegend("bottomright", pal = pal2, opacity = 1, group = "Bathy", values = terra::values(r_bathy),
             labFormat = labelFormat(transform = function(x) round(x, 1)), title = "Depth (m)") %>%
   addLayersControl(position = "topleft", overlayGroups = c("Chla", "Bathy"), options = layersControlOptions(collapsed = FALSE)) %>%
-  hideGroup(c("Chla", "Bathy"))
-
-# Loop through each station row and add markers with appropriate icons and popups
-for(i in 1:nrow(station_lat_lon)) {
-  m <- m %>%
-    addAwesomeMarkers(lng = station_lat_lon$Lon[i], lat = station_lat_lon$Lat[i], popup = content[i],
-                      icon = awesomeIcons(icon = 'flag', iconColor = 'black', library = 'ion', 
-                                          markerColor = getColor(station_lat_lon$station_type[i])))
-}
-
-# Add additional map features such as scale bar, mini map, measuring tools, reset map button, and GPS control
-m <- m %>%
+  hideGroup(c("Chla", "Bathy")) %>%
+  
+  # Add awesome markers with colour assignment based on station type
+  addAwesomeMarkers(
+    data = station_lat_lon,
+    popup = ~content,
+    icon = awesomeIcons(
+      icon = 'flag', iconColor = 'black', library = 'ion', 
+      markerColor = ~color  # Dynamically assign marker color
+    )
+  ) %>%
+  
+  # Add map controls
   addScaleBar(position = "bottomleft") %>%
   addMiniMap(tiles = providers$Esri.WorldStreetMap, toggleDisplay = TRUE, minimized = FALSE) %>%
   addMeasure(position = "bottomleft", primaryLengthUnit = "meters", primaryAreaUnit = "sqmeters", 
@@ -153,11 +143,11 @@ m <- m %>%
   addControlGPS(options = gpsOptions(position = "bottomleft", activate = TRUE, autoCenter = TRUE, 
                                      maxZoom = 18, setView = TRUE))
 
-# -------------------------------------------------------------------------------------------------
-# Display and Save Map
-
 # Display the map in RStudio's Viewer
 print(m)
+
+# -------------------------------------------------------------------------------------------------
+# Save the map
 
 # Save the map to an HTML file with error handling for file overwrite
 save_leaflet <- function(map, file, overwrite = TRUE) {
@@ -168,7 +158,11 @@ save_leaflet <- function(map, file, overwrite = TRUE) {
   }
 }
 
+# Save the map to the defined output path
 save_leaflet(m, path_output)
+
+# Open the saved map in a browser if needed
+browseURL(path_output)
 
 # -------------------------------------------------------------------------------------------------
 # End of the R script
