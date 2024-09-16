@@ -30,9 +30,9 @@ remove_workspace_objects()
 # -------------------------------------------------------------------------------------------------
 # Load Required Libraries
 
-# Uses 'pacman' for managing package loading and installation.
-if (!require(pacman)) install.packages("pacman")
-pacman::p_load(dplyr, raster, readxl, leaflet, leafem, leaflet.extras, htmltools, rgdal, inlmisc)
+# Use 'librarian' for managing package loading and installation.
+if (!require(librarian)) install.packages("librarian")
+librarian::shelf(dplyr, sf, terra, readxl, leaflet, leafem, leaflet.extras, htmltools, cmocean, glue)
 
 # -------------------------------------------------------------------------------------------------
 # Define File Paths
