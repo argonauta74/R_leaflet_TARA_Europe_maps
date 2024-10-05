@@ -1,6 +1,6 @@
 ## This repository contains the R script associated with the manuscript:
   
-Marchese et al. in Oceanography (https://doi.org/10.5670/oceanog.2024.513)
+Marchese et al. 2024 in Oceanography (https://doi.org/10.5670/oceanog.2024.513)
 
 This script generates an interactive leaflet map to facilitate the visualization of sampling stations for specific coastal ocean areas. 
 Colored markers denote each station and include pop-up windows displaying basic station-specific information (e.g., station number, lat, lon, sampling dates, etc.). 
