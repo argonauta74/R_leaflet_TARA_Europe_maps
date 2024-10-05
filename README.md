@@ -2,9 +2,6 @@
   
 Marchese et al. in Oceanography (https://doi.org/10.5670/oceanog.2024.513)
 
-https://tos.org/oceanography/article/satellite-data-sharing-for-scientific-inter-group-cooperation-using-the-leaflet-r-package
-
-## Description
 This script generates an interactive leaflet map to facilitate the visualization of sampling stations for specific coastal ocean areas. 
 Colored markers denote each station and include pop-up windows displaying basic station-specific information (e.g., station number, lat, lon, sampling dates, etc.). 
 The leaflet integrates multiple layers (i.e., environmental parameters), such as bathymetry and surface chlorophyll-a from satellite data; however, other layers (i.e., geospatial data) can be added according to the user's needs. 
