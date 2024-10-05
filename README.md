@@ -1,6 +1,6 @@
 ## This repository contains the R script associated with the manuscript:
   
-Marchese et al. under review in DIY Oceanography (https://tos.org/diy-oceanography) 
+Marchese et al. in Oceanography (https://tos.org/oceanography/article/satellite-data-sharing-for-scientific-inter-group-cooperation-using-the-leaflet-r-package) 
 
 ## Description
 This script generates an interactive leaflet map to facilitate the visualization of sampling stations for specific coastal ocean areas. 
